@@ -8,7 +8,7 @@ object implicits {
     new Functor[DbAction] {
       def map[A, B](fa: DbAction[A])(f: A => B) : DbAction[B] =
         DbAction(conn => {
-          val v = fa.run(conn)
+          val v = DbAction.run(fa, conn)
           f(v)
         })
     }
@@ -20,8 +20,8 @@ object implicits {
       override def ap[A, B](ff: DbAction[A => B])(
         fa: DbAction[A]): DbAction[B] =
         DbAction(conn => {
-          val f = ff.run(conn)
-          val v = fa.run(conn)
+          val f = DbAction.run(ff, conn)
+          val v = DbAction.run(fa, conn)
           f(v)
         })
     }
@@ -30,8 +30,8 @@ object implicits {
     override def flatMap[A, B](fa: DbAction[A])(
       f: A => DbAction[B]): DbAction[B] =
       DbAction(conn => {
-        val x = fa.run(conn)
-        f(x).run(conn)
+        val x = DbAction.run(fa, conn)
+        DbAction.run(f(x), conn)
       })
 
     //TODO: implement this as @tailrec

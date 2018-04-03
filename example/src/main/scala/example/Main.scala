@@ -24,7 +24,9 @@ object Main extends App {
     DbAction.execute(
       for {
         _ <- AccountTable.deposit("account1", 100)
+        _ <- DbAction.lift {println("account1 created")}
         _ <- AccountTable.deposit("account2", 100)
+        _ <- DbAction.lift {println("account2 created")}
       } yield ())(Db.connection)
 
     DbAction.execute(transfer("account1", "account2", 100))(Db.connection)

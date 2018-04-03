@@ -36,7 +36,7 @@ class DbActionSpec extends FunSuite with Discipline with GeneratorDrivenProperty
   implicit val eqInt : Eq[Int] = Eq.fromUniversalEquals[Int]
 
   implicit def eqDbAction[T] : Eq[DbAction[T]] = Eq.instance { (t1, t2) =>
-    arbitraryValues[Connection].take(equalitySamplesCount).forall(c => t1.run(c) === t2.run(c))
+    arbitraryValues[Connection].take(equalitySamplesCount).forall(c => DbAction.run(t1, c) === DbAction.run(t2, c))
   }
 
   checkAll("Functor DbAction", FunctorTests[DbAction].functor[Int, Int, Int])

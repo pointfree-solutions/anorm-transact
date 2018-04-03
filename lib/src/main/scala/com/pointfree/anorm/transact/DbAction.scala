@@ -5,32 +5,36 @@ import java.sql.Connection
 
 import anorm.{ResultSetParser, Row, SimpleSql}
 
-sealed trait DbAction[+T] {
-  val run: Connection => T
-}
-
-private case class DbActionImpl[T](val run: Connection => T)
-  extends DbAction[T]
+sealed trait DbAction[+T]
+private case class Sql[T](run: Connection => T) extends DbAction[T]
+private case class Lifted[T](block : Unit => T) extends DbAction[T]
 
 object DbAction {
 
-  def apply[T](run : Connection => T) :DbAction[T] = DbActionImpl(run)
+  def apply[T](run : Connection => T) :DbAction[T] = Sql(run)
 
   def insert[A](sql: SimpleSql[Row], resultSetParser: ResultSetParser[A]): DbAction[A] =
-    DbActionImpl(conn => sql.executeInsert(resultSetParser)(conn))
+    Sql(conn => sql.executeInsert(resultSetParser)(conn))
 
   def update(sql: SimpleSql[Row]): DbAction[Int] =
-    DbActionImpl(conn => sql.executeUpdate()(conn))
+    Sql(conn => sql.executeUpdate()(conn))
 
   def query[T](sql: SimpleSql[Row], rsp: ResultSetParser[T]): DbAction[T] =
-    DbActionImpl(conn => sql.as(rsp)(conn))
+    Sql(conn => sql.as(rsp)(conn))
 
+  def lift[T](block : => T) : DbAction[T] = Lifted(_ => block)
+
+  def run[T](action : DbAction[T], connection:Connection) =
+    action match {
+      case Sql(run) => run(connection)
+      case Lifted(block) => block()
+    }
 
   def execute[T](action: DbAction[T])(connection: Connection): T = {
     try {
       connection.setAutoCommit(false)
 
-      val result = action.run(connection)
+      val result = run(action,connection)
 
       connection.commit()
 
