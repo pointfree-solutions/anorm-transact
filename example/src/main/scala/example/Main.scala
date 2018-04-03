@@ -1,8 +1,8 @@
 package example
 
 import cats.implicits._
-import com.pointfree.anorm.transact.implicits._
 import com.pointfree.anorm.transact.DbAction
+import com.pointfree.anorm.transact.implicits._
 
 
 

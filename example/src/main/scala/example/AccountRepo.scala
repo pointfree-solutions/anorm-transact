@@ -1,11 +1,10 @@
 package example
 
+import anorm.{RowParser, SQL}
+import anorm.SqlParser.{long, str}
 import cats.implicits._
 import com.pointfree.anorm.transact.DbAction
 import com.pointfree.anorm.transact.implicits._
-import anorm.RowParser
-import anorm.SqlParser.{long, str}
-import anorm.SQL
 
 case class Account ( id : String,
                      amount : Long

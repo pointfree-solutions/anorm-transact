@@ -1,5 +1,5 @@
-import sbt._
 import Dependencies._
+import sbt._
 
 lazy val commonSettings = Seq(
   organization := "com.pointfree",
