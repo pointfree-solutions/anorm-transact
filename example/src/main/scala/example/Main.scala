@@ -3,14 +3,8 @@ package example
 import cats.implicits._
 import com.pointfree.anorm.transact.implicits._
 import com.pointfree.anorm.transact.DbAction
-import scalikejdbc._
 
-object Db {
-  Class.forName("org.postgresql.Driver")
-  ConnectionPool.singleton("jdbc:postgresql://localhost/bankexample", "dev", "dev")
 
-  def connection  = ConnectionPool.borrow()
-}
 
 object Main extends App {
   override def main(args: Array[String]): Unit = {
