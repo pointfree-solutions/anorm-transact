@@ -29,6 +29,14 @@ object Main extends App {
         _ <- DbAction.lift {println("account2 created")}
       } yield ())(Db.connection)
 
+    DbAction.execute(
+      for {
+        list <- AccountTable.listAll
+        _ <- if (list.exists(acc => acc.id == "account3"))
+              DbAction.fail(new RuntimeException("account3 should not exist"))
+            else DbAction.lift { println ("All good")}
+      } yield ())(Db.connection)
+
     DbAction.execute(transfer("account1", "account2", 100))(Db.connection)
 
     println("Final accounts: " + DbAction.execute(AccountTable.listAll)(Db.connection))
