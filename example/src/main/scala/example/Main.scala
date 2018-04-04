@@ -3,8 +3,7 @@ package example
 import cats.implicits._
 import com.pointfree.anorm.transact.DbAction
 import com.pointfree.anorm.transact.implicits._
-
-
+import scala.io.StdIn
 
 object Main extends App {
   override def main(args: Array[String]): Unit = {
@@ -15,39 +14,49 @@ object Main extends App {
 
     DbAction.execute(
       for {
-        _ <- AccountTable.insert(Account("account1", 0))
-        _ <- AccountTable.insert(Account("account2", 0))
+        _ <- AccountTable.insert(Account("account1", 100))
+        _ <- AccountTable.insert(Account("account2", 100))
       } yield ())(Db.connection)
 
     println("After insert:" + DbAction.execute(AccountTable.listAll)(Db.connection))
 
-    DbAction.execute(
+    val transaction =
       for {
-        _ <- AccountTable.deposit("account1", 100)
-        _ <- DbAction.lift {println("account1 created")}
-        _ <- AccountTable.deposit("account2", 100)
-        _ <- DbAction.lift {println("account2 created")}
-      } yield ())(Db.connection)
+        initialAccounts <- AccountTable.listAll
 
-    DbAction.execute(
-      for {
-        list <- AccountTable.listAll
-        _ <- if (list.exists(acc => acc.id == "account3"))
-              DbAction.fail(new RuntimeException("account3 should not exist"))
-            else DbAction.lift { println ("All good")}
-      } yield ())(Db.connection)
+        amount <- DbAction.lift {
+          println(s"accounts created: $initialAccounts")
 
-    DbAction.execute(transfer("account1", "account2", 100))(Db.connection)
+          println("How much to transfer from account1 to account2?")
+          StdIn.readInt()
+        }
+
+        _ <- transfer("account1", "account2", amount)
+      } yield ()
+
+    DbAction.execute(transaction)(Db.connection)
 
     println("Final accounts: " + DbAction.execute(AccountTable.listAll)(Db.connection))
 
     DbAction.execute(AccountTable.drop)(Db.connection)
   }
 
-  def transfer(from: String, to: String, amount: Long) : DbAction[Unit] =
+  def transfer(from: String, to: String, amount: Long): DbAction[Unit] =
     for {
-      _ <- AccountTable.deposit(to, amount)
-      _ <- AccountTable.withdraw(from, amount)
+      accounts <- AccountTable.listAll
+      _ <- (accounts.find(acc => acc.id == from), accounts.find(acc => acc.id == to)) match {
+        case (Some(fromAcc), Some(toAcc)) =>
+          if (fromAcc.amount >= amount)
+            for {
+              _ <- AccountTable.withdraw(from, amount)
+              _ <- AccountTable.deposit(to, amount)
+            } yield ()
+          else
+            DbAction.fail(new RuntimeException("Insuficient funds"))
+
+        case (None, _) => DbAction.fail(new RuntimeException(s"Account $from not found"))
+        case (_, None) => DbAction.fail(new RuntimeException(s"Account $to not found"))
+      }
     } yield ()
 }
 

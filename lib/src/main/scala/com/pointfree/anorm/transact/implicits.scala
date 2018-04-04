@@ -1,38 +1,75 @@
 package com.pointfree.anorm.transact
 
-import cats.{Applicative, Functor, Monad}
+import cats._
+
+import scala.util.{Failure, Success}
 
 object implicits {
 
-  implicit val transactionFunctor: Functor[DbAction] =
+  implicit val dbActionFunctor: Functor[DbAction] =
     new Functor[DbAction] {
-      def map[A, B](fa: DbAction[A])(f: A => B) : DbAction[B] =
-        DbAction(conn => {
-          val v = DbAction.run(fa, conn)
-          f(v)
-        })
+      override def map[A, B](fa: DbAction[A])(f: A => B) : DbAction[B] =
+        fa match {
+          case Sql(stmt) => DbAction(connection => stmt(connection).map(f))
+          case Lifted(block) => Lifted(_ => block().map(f))
+          case Failed(err) => Failed(err)
+        }
     }
 
-  implicit val transactionApplicative: Applicative[DbAction] =
+  implicit val dbActionApplicative: Applicative[DbAction] =
     new Applicative[DbAction] {
-      override def pure[A](x: A): DbAction[A] = DbAction(c => x)
+      override def pure[A](x: A): DbAction[A] = DbAction(c => Success(x))
 
-      override def ap[A, B](ff: DbAction[A => B])(
-        fa: DbAction[A]): DbAction[B] =
-        DbAction(conn => {
-          val f = DbAction.run(ff, conn)
-          val v = DbAction.run(fa, conn)
-          f(v)
-        })
+      override def ap[A, B](ff: DbAction[A => B])(fa: DbAction[A]): DbAction[B] =
+          ff match {
+            case Sql(stmtF) =>
+
+              fa match {
+                case Sql(stmtA) => DbAction(connection =>
+                  for {
+                    f <- stmtF(connection)
+                    a <- stmtA(connection)
+                  } yield f(a))
+                case Lifted(block) => DbAction(connection =>
+                  for {
+                    f <- stmtF(connection)
+                    a <- block()
+                  } yield f(a))
+                case Failed(err) => Failed(err)
+              }
+
+            case Lifted(blockF) =>
+              fa match {
+                case Sql(stmtA) => DbAction(connection =>
+                  for {
+                    f <- blockF()
+                    a <- stmtA(connection)
+                  } yield f(a))
+                case Lifted(block) => DbAction(connection =>
+                  for {
+                    f <- blockF()
+                    a <- block()
+                  } yield f(a))
+                case Failed(err) => Failed(err)
+              }
+            case Failed(err) => Failed(err)
+          }
     }
 
-  implicit val transactionMonad: Monad[DbAction] = new Monad[DbAction] {
-    override def flatMap[A, B](fa: DbAction[A])(
-      f: A => DbAction[B]): DbAction[B] =
-      DbAction(conn => {
-        val x = DbAction.run(fa, conn)
-        DbAction.run(f(x), conn)
-      })
+  implicit val dbActionMonad: Monad[DbAction] = new Monad[DbAction] {
+    override def flatMap[A, B](fa: DbAction[A])(f: A => DbAction[B]): DbAction[B] =
+      fa  match {
+        case Failed(err) => Failed(err)
+        case Lifted(block) => block().fold(err => Failed(err),f)
+        case Sql(stmt) =>
+          DbAction(conn =>
+            stmt(conn)
+              .flatMap(v => f(v) match {
+                case Failed(err) => Failure(err)
+                case Sql(stmt2) => stmt2(conn)
+                case Lifted(block) => block()
+              }))
+      }
 
     //TODO: implement this as @tailrec
     // See https://github.com/purescript/purescript-tailrec/blob/master/src/Control/Monad/Rec/Class.purs
@@ -43,7 +80,7 @@ object implicits {
         case Right(b) => pure(b)
       }
 
-    override def pure[A](x: A): DbAction[A] = transactionApplicative.pure(x)
+    override def pure[A](x: A): DbAction[A] = dbActionApplicative.pure(x)
   }
 
 }

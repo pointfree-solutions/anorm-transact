@@ -1,42 +1,53 @@
-package acta.db7
+package com.pointfree.anorm.transact
 
 
 import java.sql.Connection
 
 import cats.Eq
 import cats.laws.discipline.{ApplicativeTests, FunctorTests, MonadTests}
-import com.pointfree.anorm.transact.DbAction
 import com.pointfree.anorm.transact.implicits._
-import org.scalacheck.{Arbitrary, Gen}
+import org.scalacheck.Arbitrary._
+import org.scalacheck.{Arbitrary, Cogen, Gen}
+import org.scalamock.scalatest.MockFactory
 import org.scalatest.FunSuite
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.typelevel.discipline.scalatest.Discipline
 
-class DbActionSpec extends FunSuite with Discipline with GeneratorDrivenPropertyChecks{
-  implicit val transactionArb : Arbitrary[DbAction[Int]] =
-    Arbitrary(
-      Arbitrary
-        .arbInt
-        .arbitrary
-        .map(n => DbAction(c => n)))
+import scala.util.Try
 
-  implicit val transactionFAtoBArb : Arbitrary[DbAction[Int=>Int]] =
-    Arbitrary(
-      Arbitrary
-        .arbInt
-        .arbitrary
-        .map(n => DbAction(c => (x => n))))
+class DbActionSpec extends FunSuite with Discipline with GeneratorDrivenPropertyChecks with MockFactory {
+  implicit val connectionCoGen : Cogen[Connection] = Cogen(conn => 1) // TODO what to use here instead of 0?
 
-  implicit val connectionArb : Arbitrary[Connection] = Arbitrary(Gen.const(null))
+  def dbActionArb[T : Arbitrary] : Arbitrary[DbAction[T]] = {
+    val stmtGen = "DbAction.apply generator" |:
+      arbitrary[Connection => Try[T]]
+        .map(stmt => DbAction(stmt))
 
-  private def arbitraryValues[A : Arbitrary]: Stream[A] = Stream.continually(implicitly[Arbitrary[A]].arbitrary.sample).flatten
+    val liftGen = "DbAction.lift generator" |:
+      arbitrary[Unit=>T]
+        .map(f => DbAction.lift({f()}))
 
-  protected def equalitySamplesCount: Int = 16
+    val failGen = "DbAction.fail generator" |: Gen.const(DbAction.fail(new RuntimeException("exception")))
+
+    Arbitrary("DbAction generator" |: Gen.oneOf(stmtGen, liftGen, failGen))
+  }
+
+  implicit val dbActionArbInt = dbActionArb[Int]
+  implicit val dbActionFAtoBArb = dbActionArb[Int=>Int]
 
   implicit val eqInt : Eq[Int] = Eq.fromUniversalEquals[Int]
 
   implicit def eqDbAction[T] : Eq[DbAction[T]] = Eq.instance { (t1, t2) =>
-    arbitraryValues[Connection].take(equalitySamplesCount).forall(c => DbAction.run(t1, c) === DbAction.run(t2, c))
+    val connectionMock = {
+      val c = mock[Connection]
+      (c.setAutoCommit (_:Boolean)).expects(false).anyNumberOfTimes().returning(())
+      (c.commit _:()=>Unit).expects().anyNumberOfTimes().returning(())
+      (c.close _:()=>Unit).expects().anyNumberOfTimes().returning(())
+      (c.rollback _:()=>Unit).expects().anyNumberOfTimes().returning(())
+      c
+    }
+
+    DbAction.execute(t1)(connectionMock) == DbAction.execute(t1)(connectionMock)
   }
 
   checkAll("Functor DbAction", FunctorTests[DbAction].functor[Int, Int, Int])
