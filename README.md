@@ -1,6 +1,6 @@
 # anorm-transact
 
-CircleCI build [![CircleCI](https://circleci.com/gh/pointfree-solutions/anorm-transact.svg?style=svg)](https://circleci.com/gh/pointfree-solutions/anorm-transact)
+[![CircleCI](https://circleci.com/gh/pointfree-solutions/anorm-transact.svg?style=shield)](https://circleci.com/gh/pointfree-solutions/anorm-transact)
 
 ## Overview
 
