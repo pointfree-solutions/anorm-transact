@@ -58,4 +58,4 @@ They can be later composed into bigger `DbAction`s as `Functor`s and `Monad`s.
     } yield ()
 ```
 
-For a working sample see [the example project](https://github.com/pointfree-solutions/anorm-transact/tree/master/example)
+For a working sample see [the example project](example)
