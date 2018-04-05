@@ -3,7 +3,9 @@ package example
 import cats.implicits._
 import com.pointfree.anorm.transact.DbAction
 import com.pointfree.anorm.transact.implicits._
+
 import scala.io.StdIn
+import scala.util.{Failure, Success}
 
 object Main extends App {
   override def main(args: Array[String]): Unit = {
@@ -34,9 +36,14 @@ object Main extends App {
         _ <- transfer("account1", "account2", amount)
       } yield ()
 
-    DbAction.execute(transaction)(Db.connection)
+    val result = DbAction.execute(transaction)(Db.connection)
+    result match {
+      case Success(_) => println("Transaction completed successfully.")
+      case Failure(err) => println(s"Transaction failed: ${err.getMessage}.")
+    }
 
-    println("Final accounts: " + DbAction.execute(AccountTable.listAll)(Db.connection))
+    val finalAcocunts =  DbAction.execute(AccountTable.listAll)(Db.connection)
+    println(s"Final accounts: ${finalAcocunts.get}")
 
     DbAction.execute(AccountTable.drop)(Db.connection)
   }
