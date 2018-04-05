@@ -18,7 +18,8 @@ lazy val lib =
         scalatest % Test,
         cats.laws % Test,
         cats.scalatest % Test,
-        discipline % Test)
+        discipline % Test,
+        scalamock % Test)
     )
 
 lazy val example =

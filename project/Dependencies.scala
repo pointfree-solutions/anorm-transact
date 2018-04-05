@@ -17,4 +17,5 @@ object Dependencies {
   val scalatest = "org.scalatest" %% "scalatest" % "3.0.5"
 
   val sl4jNop = "org.slf4j" % "slf4j-nop" % "1.7.25"
+  val scalamock = "org.scalamock" %% "scalamock" % "4.1.0"
 }
