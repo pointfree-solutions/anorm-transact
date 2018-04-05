@@ -1,9 +1,12 @@
-# Anorm-transact
+# anorm-transact
 
 CircleCI build [![CircleCI](https://circleci.com/gh/pointfree-solutions/anorm-transact.svg?style=svg)](https://circleci.com/gh/pointfree-solutions/anorm-transact)
 
+## Overview
+
 Thin layer on top of Anorm for better composability. It relies on `DbAction` trait which has implementations for `Functor`, `Applicative` and `Monad`
 
+## Usage
 DB operations can be defined like:
 ```scala
   def insert(account : Account) =
@@ -59,3 +62,7 @@ They can be later composed into bigger `DbAction`s as `Functor`s and `Monad`s.
 ```
 
 For a working sample see [the example project](example)
+
+## License
+
+[Simplified BSD License](https://opensource.org/licenses/bsd-license.php)
