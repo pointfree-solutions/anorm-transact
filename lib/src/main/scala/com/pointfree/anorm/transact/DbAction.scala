@@ -5,7 +5,7 @@ import java.sql.Connection
 
 import anorm.{ResultSetParser, Row, SimpleSql}
 
-import scala.util.{Failure, Try}
+import scala.util.{Failure, Success, Try}
 
 sealed trait DbAction[+T]
 
@@ -16,6 +16,8 @@ private case class Failed(err : Throwable) extends DbAction[Nothing]
 object DbAction {
 
   def apply[T](run : Connection => Try[T]) : DbAction[T] = Sql(conn => run(conn))
+
+  def pure[T](v : T) : DbAction[T] = lift({v})
 
   def insert[A](sql: SimpleSql[Row], resultSetParser: ResultSetParser[A]): DbAction[A] =
     Sql(conn => Try{sql.executeInsert(resultSetParser)(conn)})

@@ -37,14 +37,12 @@ object AccountTable {
       SQL("select * from accounts"),
       Account.rowParser.*)
 
-  private def findAllById(accountId : String) : DbAction[List[Account]] =
-    DbAction.query(
-      SQL("select * from accounts where account_id={account_id}")
-        .on("account_id" -> accountId),
-      Account.rowParser.*)
-
   def find(accountId : String) : DbAction[Option[Account]] =
-    findAllById(accountId).map(lst => lst.headOption)
+    DbAction
+      .query( SQL("select * from accounts where account_id = {account_id}")
+                .on("account_id" -> accountId),
+              Account.rowParser.*)
+      .map(_.headOption)
 
   def updateById(accountId : String, amount : Long) : DbAction[Int] =
     DbAction.update(
@@ -55,9 +53,9 @@ object AccountTable {
 
   private def update(accountId : String, accountDbAction : Long => Long) =
     for {
-      accounts <- findAllById(accountId)
+      accountOpt <- find(accountId)
 
-      changed <- accounts.headOption match {
+      changed <- accountOpt match {
         case None => throw new RuntimeException(s"Account $accountId not found")
         case Some(account) => updateById(accountId, accountDbAction(account.amount))
       }

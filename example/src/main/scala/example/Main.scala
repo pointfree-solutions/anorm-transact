@@ -38,7 +38,7 @@ object Main extends App {
             amount
         }
 
-        _ <- transfer("account1", "account2", amount)
+        _ <- transfer("account1", "account3", amount)
       } yield ()
 
     val result = DbAction.execute(transaction)(Db.connection)
@@ -55,20 +55,24 @@ object Main extends App {
 
   def transfer(from: String, to: String, amount: Long): DbAction[Unit] =
     for {
-      accounts <- AccountTable.listAll
-      _ <- (accounts.find(acc => acc.id == from), accounts.find(acc => acc.id == to)) match {
-        case (Some(fromAcc), Some(toAcc)) =>
-          if (fromAcc.amount >= amount)
+
+      fromAccount <- AccountTable.find(from).flatMap {
+          case None => throw new RuntimeException(s"Account $from not found")
+          case Some(a) => DbAction.pure(a)
+        }
+
+      toAccount <- AccountTable.find(to).flatMap {
+        case None => throw new RuntimeException(s"Account $to not found")
+        case Some(a) => DbAction.pure(a)
+      }
+
+      _ <- if (fromAccount.amount >= amount)
             for {
               _ <- AccountTable.withdraw(from, amount)
               _ <- AccountTable.deposit(to, amount)
             } yield ()
           else
-            DbAction.fail(new RuntimeException("Insuficient funds"))
-
-        case (None, _) => DbAction.fail(new RuntimeException(s"Account $from not found"))
-        case (_, None) => DbAction.fail(new RuntimeException(s"Account $to not found"))
-      }
+            throw new RuntimeException("Insuficient funds")
     } yield ()
 }
 
