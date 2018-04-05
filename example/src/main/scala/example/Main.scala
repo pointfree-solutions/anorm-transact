@@ -30,7 +30,12 @@ object Main extends App {
           println(s"accounts created: $initialAccounts")
 
           println("How much to transfer from account1 to account2?")
-          StdIn.readInt()
+          val amount = StdIn.readInt()
+          if (amount < 0)
+            //failure by eception is also possible
+            throw new RuntimeException("negative amount is not allowed")
+          else
+            amount
         }
 
         _ <- transfer("account1", "account2", amount)
