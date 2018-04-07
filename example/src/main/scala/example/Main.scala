@@ -1,8 +1,9 @@
 package example
 
 import cats.implicits._
-import com.pointfree.anorm.transact.DbAction
-import com.pointfree.anorm.transact.implicits._
+import com.pointfree.anorm.transact.DbActionSync
+import com.pointfree.anorm.transact.DbActionSync.DbActionSync
+import com.pointfree.anorm.transact.DbActionSync.implicits._
 
 import scala.io.StdIn
 import scala.util.{Failure, Success}
@@ -10,23 +11,23 @@ import scala.util.{Failure, Success}
 object Main extends App {
   override def main(args: Array[String]): Unit = {
 
-    DbAction.execute(AccountTable.create)(Db.connection)
+    DbActionSync.execute(AccountTable.create)(Db.connection)
 
-    println("Initial db: " + DbAction.execute(AccountTable.listAll)(Db.connection))
+    println("Initial db: " + DbActionSync.execute(AccountTable.listAll)(Db.connection))
 
-    DbAction.execute(
+    DbActionSync.execute(
       for {
         _ <- AccountTable.insert(Account("account1", 100))
         _ <- AccountTable.insert(Account("account2", 100))
       } yield ())(Db.connection)
 
-    println("After insert:" + DbAction.execute(AccountTable.listAll)(Db.connection))
+    println("After insert:" + DbActionSync.execute(AccountTable.listAll)(Db.connection))
 
     val transaction =
       for {
         initialAccounts <- AccountTable.listAll
 
-        amount <- DbAction.lift {
+        amount <- DbActionSync.lift {
           println(s"accounts created: $initialAccounts")
 
           println("How much to transfer from account1 to account2?")
@@ -38,32 +39,32 @@ object Main extends App {
             amount
         }
 
-        _ <- transfer("account1", "account3", amount)
+        _ <- transfer("account1", "account2", amount)
       } yield ()
 
-    val result = DbAction.execute(transaction)(Db.connection)
+    val result = DbActionSync.execute(transaction)(Db.connection)
     result match {
       case Success(_) => println("Transaction completed successfully.")
       case Failure(err) => println(s"Transaction failed: ${err.getMessage}.")
     }
 
-    val finalAcocunts =  DbAction.execute(AccountTable.listAll)(Db.connection)
+    val finalAcocunts =  DbActionSync.execute(AccountTable.listAll)(Db.connection)
     println(s"Final accounts: ${finalAcocunts.get}")
 
-    DbAction.execute(AccountTable.drop)(Db.connection)
+    DbActionSync.execute(AccountTable.drop)(Db.connection)
   }
 
-  def transfer(from: String, to: String, amount: Long): DbAction[Unit] =
+  def transfer(from: String, to: String, amount: Long): DbActionSync[Unit] =
     for {
 
       fromAccount <- AccountTable.find(from).flatMap {
           case None => throw new RuntimeException(s"Account $from not found")
-          case Some(a) => DbAction.pure(a)
+          case Some(a) => DbActionSync.pure(a)
         }
 
       toAccount <- AccountTable.find(to).flatMap {
         case None => throw new RuntimeException(s"Account $to not found")
-        case Some(a) => DbAction.pure(a)
+        case Some(a) => DbActionSync.pure(a)
       }
 
       _ <- if (fromAccount.amount >= amount)

@@ -3,8 +3,9 @@ package example
 import anorm.{RowParser, SQL}
 import anorm.SqlParser.{long, str}
 import cats.implicits._
-import com.pointfree.anorm.transact.DbAction
-import com.pointfree.anorm.transact.implicits._
+import com.pointfree.anorm.transact.DbActionSync
+import com.pointfree.anorm.transact.DbActionSync.DbActionSync
+import com.pointfree.anorm.transact.DbActionSync.implicits._
 
 case class Account ( id : String,
                      amount : Long
@@ -20,32 +21,32 @@ object Account {
 
 object AccountTable {
   def insert(account : Account) =
-    DbAction.update(
+    DbActionSync.update(
       SQL("insert into accounts (account_id, amount) values ({account_id}, {amount})")
         .on(
           "account_id" -> account.id,
           "amount" -> account.amount))
 
   val create =
-    DbAction.update(
+    DbActionSync.update(
       SQL("create table accounts (account_id text PRIMARY KEY NOT NULL, amount integer NOT NULL)"))
 
-  val drop = DbAction.update(SQL("drop table accounts"))
+  val drop = DbActionSync.update(SQL("drop table accounts"))
 
   def listAll =
-    DbAction.query(
+    DbActionSync.query(
       SQL("select * from accounts"),
       Account.rowParser.*)
 
-  def find(accountId : String) : DbAction[Option[Account]] =
-    DbAction
+  def find(accountId : String) : DbActionSync[Option[Account]] =
+    DbActionSync
       .query( SQL("select * from accounts where account_id = {account_id}")
                 .on("account_id" -> accountId),
               Account.rowParser.*)
       .map(_.headOption)
 
-  def updateById(accountId : String, amount : Long) : DbAction[Int] =
-    DbAction.update(
+  def updateById(accountId : String, amount : Long) : DbActionSync[Int] =
+    DbActionSync.update(
       SQL("update accounts set amount = {new_amount} where account_id={account_id}")
         .on(
           "account_id" -> accountId,
